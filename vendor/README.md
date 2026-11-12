@@ -1,0 +1,1 @@
+Official PhysioNet/CinC Challenge 2019 evaluation code, retrieved from https://raw.githubusercontent.com/physionetchallenges/evaluation-2019/master/evaluate_sepsis_score.py on 2026-11-11. See source header for BSD license and attribution. Unmodified.

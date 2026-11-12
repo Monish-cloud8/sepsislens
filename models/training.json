@@ -1,0 +1,41 @@
+{
+  "vitals": {
+    "trials": [
+      {
+        "num_leaves": 15,
+        "validation_auprc": 0.06273838500062151,
+        "iterations": 234
+      },
+      {
+        "num_leaves": 31,
+        "validation_auprc": 0.06505789495175096,
+        "iterations": 237
+      }
+    ],
+    "selected_validation_auprc": 0.06505789495175096,
+    "n_features": 40
+  },
+  "vitals_labs": {
+    "trials": [
+      {
+        "num_leaves": 15,
+        "validation_auprc": 0.07937049266819882,
+        "iterations": 221
+      },
+      {
+        "num_leaves": 31,
+        "validation_auprc": 0.0816709469765411,
+        "iterations": 162
+      }
+    ],
+    "selected_validation_auprc": 0.0816709469765411,
+    "n_features": 94
+  },
+  "calibration": {
+    "solver": "liblinear",
+    "C": 1000000.0,
+    "max_iter": 1000,
+    "tol": 1e-08,
+    "selection": "A-only numerical stability fix; no B outcomes used"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "browser": "Chromium",
+  "tabs": [
+    "Patient Replay",
+    "Alarm Budget",
+    "Trust & Validation",
+    "About"
+  ],
+  "screenshots": true,
+  "mobile_viewport": true,
+  "page_errors": []
+}
