@@ -6,3 +6,6 @@ __pycache__/
 .DS_Store
 .playwright/
 scripts/pipeline.sh
+.venv311/
+.demo-check/
+.demo-check*/

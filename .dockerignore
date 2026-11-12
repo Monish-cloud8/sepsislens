@@ -6,3 +6,9 @@ __pycache__
 .pytest_cache
 reports/screenshots
 scripts/pipeline.sh
+
+.venv*/
+.demo-check*/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
