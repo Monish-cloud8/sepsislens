@@ -7,126 +7,163 @@ sdk: docker
 app_port: 8501
 ---
 # SepsisLens
-**An open, explainable cross-hospital sepsis early-warning research prototype. DSH Hacks V2 | AI x Healthcare.**
+**Explainable sepsis early-warning research | DSH Hacks V2 | AI x Healthcare**
 
-> **NOT FOR CLINICAL USE.** Retrospective public ICU data only. Do not use for diagnosis, triage, treatment, or live monitoring.
+> **Research prototype, NOT FOR CLINICAL USE.** Retrospective public ICU recordings. No diagnosis, treatment, triage or live patient monitoring.
 
-## Why
-CDC estimates about 1,700,000 US adults develop sepsis yearly; at least 350,000 die during hospitalization or go to hospice.
-At the studied threshold, Epic's model missed 67% of sepsis cases in external validation. This is context, not a head-to-head comparison.
-In the observational TREWS study, provider confirmation within three hours was associated with a 18.7% adjusted relative mortality reduction. This does not establish that alerts caused the reduction.
+## Key results
+Full Hospital B evaluation: 20,000 patients, 761,995 hours.
+A-only selected candidate: **original**; shared alert cooldown: **12 hours**.
+The original model is retained if no candidate improves A-selection catches at every target budget. Stronger hourly AUROC does not guarantee better patient catches.
 
-## Approach
-Hospital A trains two class-weighted LightGBM models: vitals and vitals + labs. A patient-level split reserves validation; a separate slice of training patients calibrates probabilities using Platt scaling. Light tuning and operational thresholds use A validation only. Hospital B remains external test data.
-Causal features: patient-wise forward fill, lab measurement flags, rolling six-hour means/minima/maxima/slopes, hourly changes, shock index, Age and Gender. Slopes use actual hourly positions and no future values. ICULOS, HospAdmTime, identifiers, hospital and unit are excluded from model inputs.
+| Version | Method | AUROC | AUPRC | Official utility | Caught at 2 (%) | At 5 (%) | At 10 (%) |
+|---|---|---|---|---|---|---|---|
+| Before: legacy B ranking | vitals_labs | 0.726 | 0.0448 | 0.0583 | 23.6 | 39.3 | 54.2 |
+| Before: legacy B ranking | NEWS2 | 0.643 | 0.0271 | 0.0436 | 25.8 | 42.0 | 59.4 |
+| Before: legacy B ranking | qSOFA | 0.578 | 0.0182 | 0.0142 | 20.6 | 39.5 | 60.2 |
+| After: A-locked, shared cooldown | refined | 0.726 | 0.0448 | -0.0130 | 34.8 | 69.0 | 92.9 |
+| After: A-locked, shared cooldown | NEWS2 | 0.643 | 0.0271 | -0.0268 | 36.6 | 67.0 | 92.9 |
+| After: A-locked, shared cooldown | qSOFA | 0.578 | 0.0182 | -0.0349 | 26.2 | 54.4 | 92.9 |
 
-## Real results from this run
-External B: **20,000 patients**, **761,995 hours**, **1,142 septic patients**.
-A validation: **4,068 patients**.
-Numbers below are generated from reports/metrics.json. Operational thresholds are selected on A for a conservative five hourly alerts per hundred hours and locked on B.
+**Historical-protocol caveat:** legacy before figures use retrospective B ranking with no cooldown. After figures use A-only thresholds with cooldown. They are different operating protocols; catch gains are not evidence of better discrimination or a matched B alarm rate.
 
-| Method | B AUROC (95% CI) | B AUPRC (95% CI) | Official utility | Caught % | Warning h |
+For a consistent A-only threshold methodology, the same run also computes the original model and baselines without suppression:
+| Version | Method | AUROC | AUPRC | Official utility | Caught at 2 (%) | At 5 (%) | At 10 (%) |
+|---|---|---|---|---|---|---|---|
+| Before: A-locked, no cooldown | vitals_labs | 0.726 | 0.0448 | 0.0540 | 6.5 | 15.6 | 29.9 |
+| Before: A-locked, no cooldown | NEWS2 | 0.643 | 0.0271 | 0.0488 | 21.2 | 38.5 | 54.0 |
+| Before: A-locked, no cooldown | qSOFA | 0.578 | 0.0182 | 0.0110 | 16.8 | 27.9 | 52.6 |
+| After: A-locked, shared cooldown | refined | 0.726 | 0.0448 | -0.0130 | 34.8 | 69.0 | 92.9 |
+| After: A-locked, shared cooldown | NEWS2 | 0.643 | 0.0271 | -0.0268 | 36.6 | 67.0 | 92.9 |
+| After: A-locked, shared cooldown | qSOFA | 0.578 | 0.0182 | -0.0349 | 26.2 | 54.4 | 92.9 |
+
+| Method | A target | Actual B alarms/100h | Caught (%) | Catches/100 alarms | Median warning h |
 |---|---|---|---|---|---|
-| vitals | 0.659 (0.644-0.674) | 0.035 (0.032-0.039) | 0.076 | 31.0 | 7.0 |
-| vitals_labs | 0.726 (0.713-0.738) | 0.045 (0.040-0.051) | 0.058 | 17.0 | 7.5 |
-| NEWS2 | 0.643 (0.630-0.656) | 0.027 (0.025-0.030) | 0.044 | 30.5 | 8.0 |
-| qSOFA | 0.578 (0.568-0.589) | 0.018 (0.017-0.020) | 0.014 | 23.7 | 8.0 |
+| refined | 2 | 0.82 | 34.8 | 5.12 | 5.0 |
+| refined | 5 | 3.67 | 69.0 | 2.27 | 7.0 |
+| refined | 10 | 8.88 | 92.9 | 1.26 | 7.0 |
+| NEWS2 | 2 | 1.61 | 36.6 | 2.74 | 6.0 |
+| NEWS2 | 5 | 4.26 | 67.0 | 1.90 | 6.0 |
+| NEWS2 | 10 | 8.88 | 92.9 | 1.26 | 7.0 |
+| qSOFA | 2 | 1.44 | 26.2 | 2.19 | 6.0 |
+| qSOFA | 5 | 4.31 | 54.4 | 1.52 | 6.0 |
+| qSOFA | 10 | 8.88 | 92.9 | 1.26 | 7.0 |
 
-| Method | Budget /100h | Caught % | Catches /100 alarms | Nonbeneficial hourly alarms | Median warning h |
-|---|---|---|---|---|---|
-| vitals_labs | 1.0 | 14.7 | 1.77 | 7017 | 7.0 |
-| vitals_labs | 2.0 | 23.6 | 1.42 | 14180 | 8.0 |
-| vitals_labs | 5.0 | 39.3 | 0.95 | 35997 | 9.0 |
-| vitals_labs | 10.0 | 54.2 | 0.65 | 72807 | 11.0 |
-| NEWS2 | 1.0 | 15.9 | 1.92 | 7215 | 7.0 |
-| NEWS2 | 2.0 | 25.8 | 1.56 | 14529 | 8.0 |
-| NEWS2 | 5.0 | 42.0 | 1.01 | 36641 | 9.0 |
-| NEWS2 | 10.0 | 59.4 | 0.72 | 73682 | 10.0 |
+AUROC/AUPRC use original challenge hourly labels before suppression. Utility uses emitted alerts under each operating rule. All values are generated from reports/metrics.json. The report contains 500 patient-bootstrap intervals, all cooldowns, subgroup results and A-versus-B metrics.
 
-The budget table is a retrospective matched-capacity comparison using label-free ranking within B, with deterministic hash tie-breaking. It is not an operational B-tuned threshold.
-See reports/metrics.json for A-versus-B metrics, confidence intervals, subgroup audits, actual alert rates, thresholds and definitions.
+## What changed and what did not help
+Trials covered six-to-twelve-hour early labels, pre-onset labels with post-onset rows dropped, equal-patient weighting, longer vital/lab windows, NEWS2 changes, LightGBM settings, and logistic NEWS2/risk-trend stacking.
+Stackers fit on 1,627 A-validation patients; model/policy comparison uses 2,441 different A-validation patients. Existing tree fits use A training patients; early stopping/calibration stay in A.
+Cooldown is chosen using the original model's A-selection catch average. Candidates can replace it only if they do not regress at any of the target budgets and improve the mean. Full A validation then supplies final thresholds. A model SHA and policy lock are recorded before B is accessed.
+| Candidate | A caught at 2 (%) | At 5 (%) | At 10 (%) | Retained |
+|---|---|---|---|---|
+| original | 56.5 | 81.3 | 93.8 | yes |
+| early6_12 | 25.9 | 74.6 | 93.8 | no |
+| early6_12_long | 23.3 | 77.7 | 93.8 | no |
+| early6_12_smooth | 18.1 | 76.2 | 93.8 | no |
+| preonset12_long | 52.8 | 79.3 | 93.8 | no |
+| preonset12_flexible | 52.8 | 80.8 | 93.8 | no |
+| hourly_long | 45.6 | 79.3 | 93.8 | no |
+| original_stack | 53.4 | 83.4 | 93.8 | no |
+| early6_12_long_stack | 42.0 | 76.7 | 93.8 | no |
+| preonset12_long_stack | 50.3 | 81.9 | 93.8 | no |
+| hourly_long_stack | 44.6 | 81.3 | 93.8 | no |
 
-## Run the included demo
-Requires Python 3.12 (see .python-version). Full data is unnecessary for the app.
+Unselected model binaries are excluded from the serving bundle. Full experiment parameters and outcomes remain in reports/experiments_A.json.
 
-    cd sepsislens
-    python3.12 -m venv .venv
+## Problem and cited context
+CDC estimates about 1,700,000 US adults develop sepsis yearly, with at least 350,000 hospital deaths or hospice discharges. [CDC](https://www.cdc.gov/sepsis/about/)
+Wong et al. reported 67% of cases missed by Epic's model at the studied threshold. This is not a head-to-head comparison. [JAMA Internal Medicine](https://jamanetwork.com/journals/jamainternalmedicine/fullarticle/2781307)
+TREWS provider confirmation within three hours was associated with a 18.7% adjusted relative mortality reduction in an observational study; no causal mortality claim is made here. [Nature Medicine](https://www.nature.com/articles/s41591-022-01894-0)
+
+## Run the app
+Python 3.11 is verified for deployment; the existing Mac environment also runs Python 3.12.
+The app reads the demo bundle and metrics only. It never retrains or reads data/raw at startup.
+
+    cd "/Users/monishannabheemoju/Desktop/Hackathons/DSH Hacks V2/sepsislens"
+    .venv/bin/streamlit run app/app.py --server.address=0.0.0.0
+
+Clean setup:
+
+    python3.11 -m venv .venv
     source .venv/bin/activate
     python -m pip install -r requirements.txt
     streamlit run app/app.py
 
-On the configured Mac, the environment already exists:
+macOS requires OpenMP: brew install libomp. Linux packages.txt installs libgomp1.
 
-    cd "/Users/monishannabheemoju/Desktop/Hackathons/DSH Hacks V2/sepsislens"
-    .venv/bin/streamlit run app/app.py
-
-macOS LightGBM requires OpenMP: brew install libomp. Linux: install libgomp1. The Mac has libomp installed.
-
-## Reproduce all results in one command
+## Reproduce the pipeline
+Full rebuild, including A-only experiments and the locked external evaluation:
 
     bash run_all.sh
 
-Use Python 3.12. With uv installed, the script creates that interpreter automatically. Otherwise create a Python 3.12 venv first.
-The downloader uses the same public S3 prefix as:
+Resume with verified existing original features and the completed A policy lock; a matching completed external report is reused without another B pass:
 
-    aws s3 sync --no-sign-request s3://physionet-open/challenge-2019/1.0.0/training/ data/raw/
+    bash run_all.sh --resume
 
-If AWS CLI is unavailable, Python downloads the same objects through unsigned S3 HTTPS, falling back to the PhysioNet HTTPS file index. Downloads resume and retry. No synthetic data or partial-cohort shortcuts.
-A complete run downloads all recordings, loads parquet, creates features, trains, evaluates with 500 whole-patient bootstrap resamples, builds plots/demo, regenerates docs, and runs protocol tests.
+The downloader resumes the public PhysioNet S3 files, with HTTPS fallback. Patient splits, seeds, candidate results, selected policy and model hashes are saved. Re-running the full pipeline repeats the external check; it does not create an additional untouched test cohort.
+To rerun only the A-development stage:
 
-## Dashboard
-- **Patient Replay:** patient selector and hourly slider; vitals, model/NEWS2 lines, A-locked threshold, alert and inferred onset markers; top 35 SHAP factors and templated explanations.
-- **Alarm Budget:** full-cohort model versus NEWS2 at matched hourly capacity, catches, nonbeneficial alarms, catches per hundred alarms and warning time with confidence intervals.
-- **Trust & Validation:** A versus B, official utility, confidence intervals, calibration, subgroup audit and limitations.
-- **About:** cited context, pipeline and baseline approximations.
-The app never retrains. It reads a shipped bundle of 300 B patients, cached SHAP, model artifacts and full-cohort metrics.
+    .venv/bin/python -m src.refine
 
+## Onset and alert definitions
+**Inferred onset = first SepsisLabel=1 recording hour + 6.** Challenge labels were shifted six hours early. This is not independently observed clinical onset. First-hour-positive recordings are left-censored; do not infer an exact warning time for them.
+Every feature uses current/past information only. ICULOS, HospAdmTime, recording hour, patient/hospital identity and unit indicators are excluded from predictors.
+- **Thresholds**: For each target budget and cooldown, fit a label-free threshold grid on A validation only; apply the saved rule unchanged to B. Actual B alert rates may differ. No B quantiles or B threshold search.
+- **Budget**: Budget slider specifies an A-validation capacity target, not an exact external B alarm rate. Actual B rates are shown; compare methods using both catches and actual burden.
+- **Cooldown**: An alert at hour t suppresses the next N hours for that patient. Earliest repeat is t+N+1. Same selected N applies to every method. No future data is used.
+- **Catch**: At least one emitted alert in [inferred onset-12h, inferred onset); first-hour-positive cases excluded from onset metrics.
+- **False Alarm**: An emitted alert outside the evaluable useful pre-onset window, including undefined/left-censored onset. Research workload proxy, not clinically adjudicated false positives.
+- **Catches Per 100 Alarms**: Distinct caught patients / all emitted alarms x100.
+- **Warning**: Median onset minus first useful emitted alert, conditional on a catch.
+- **Onset**: First SepsisLabel=1 recording hour + 6. Labels were shifted six hours early. Inferred, not independently observed; first-hour-positive cases are left-censored.
+- **Ci**: 500 percentile bootstrap resamples of whole patients; frozen model, A-thresholds and causal cooldown sequences. Excludes model-selection/training uncertainty.
+- **Utility**: Unmodified official PhysioNet 2019 normalized utility applied to emitted sparse alerts; this score penalizes suppressed hourly positives and is not optimized for episodic alert workflows.
+- **Auprc**: Average precision against the original hourly challenge labels, even for models trained on pre-onset targets.
+- **Calibration**: Base models use A-only Platt scaling for their training target. A stacked policy score is not a calibrated probability of the challenge label; reliability plots audit that mismatch.
+
+## Dashboard and screenshots
+Patient Replay has causal vitals/model/NEWS2 plots, emitted-alert markers, inferred onset, a replay slider, explicit lead time, and cached model explanations. Alarm Budget shows A-target capacity, actual B burden and adjustable shared cooldown. Trust & Validation starts with key results and before/after tables. About cites the data and studies.
 ![Patient Replay](reports/screenshots/patient_replay.png)
 ![Alarm Budget](reports/screenshots/alarm_budget.png)
 ![Trust and Validation](reports/screenshots/trust_validation.png)
-![ROC](reports/figures/roc.png)
-![Calibration](reports/figures/calibration.png)
-![Alarm budget](reports/figures/alarm_budget.png)
 
-## Deploy
-**Streamlit Community Cloud:** push this directory as the repository root, including demo/, models/, reports/, vendor/, src/, app/, requirements.txt and .streamlit/. Choose app/app.py as the entry point and Python 3.12. packages.txt supplies Linux OpenMP. Do not upload data/ or .venv/.
-If nested in a repository, adjust the entry point accordingly and ensure dependency files are discovered.
+## Deploy to Streamlit Community Cloud
+Clean Python 3.11 and demo-only execution: passed. Docker build/run: untested; Docker unavailable on the Mac. No account creation or remote push.
 
-**Hugging Face Spaces:** create a Docker Space and push this directory as its root. Dockerfile serves Streamlit on port 8501; README metadata sets app_port. No dataset download or training occurs during build or startup. scripts/verify_bundle.py verifies that serving artifacts are under 100 MB.
-Cloud publication requires your GitHub or Hugging Face account/repository connection. A local run does not claim cloud publication.
+1. Use this sepsislens directory as the repository root. Include app/, src/, demo/, models/, reports/, vendor/, requirements.txt, packages.txt and .streamlit/. Exclude data/, environments and logs.
+2. In your own GitHub account, create/select a repository and push the prepared project yourself. No push or account creation is performed by this task.
+3. Open Streamlit Community Cloud, choose Create app, select that repository and branch, and set the main file path to app/app.py.
+4. Under Advanced settings, select Python 3.11. No secrets or dataset download are required.
+5. Deploy and verify the four tabs. The app loads the shipped demo bundle; requirements.txt is pinned and packages.txt supplies Linux OpenMP.
+If nested in a repository, set the entry point and dependency discovery paths accordingly; using this folder as the root is recommended.
 
-## Evaluation contract
-- **Thresholds**: Conservative 5 hourly alerts/100 hours on A validation; unchanged on B.
-- **Budget**: Retrospective label-free within-cohort score ranking, SHA256 patient-hour tie-break; not a prospectively deployable threshold or tuning on B outcomes.
-- **Catch**: At least one hourly alert in [inferred onset-12h, inferred onset); first-label-positive patients excluded because onset is left-censored.
-- **False Alarm**: An hourly alert outside the useful pre-onset window, including repeated late/post-onset alerts.
-- **Catches Per 100 Alarms**: Distinct caught patients / all hourly alerts x100; not hourly PPV.
-- **Warning**: Median onset minus first useful alarm, conditional on a catch.
-- **Onset**: First positive SepsisLabel hour + 6; inferred, not independently observed. First-hour positives are left-censored.
-- **Ci**: 500 percentile bootstrap replicates resampling whole patients, fixed model/threshold/ranking; excludes model-training and threshold-selection uncertainty.
-- **Auprc**: Average precision (step-function PR area).
-- **Calibration**: Platt scaling fitted on held-out A training patients; not refitted on B.
+## Hugging Face / Docker
+Create a Docker Space yourself and upload this directory. Dockerfile serves port 8501 and README metadata sets app_port. No training occurs during image build or startup.
 
-## Limitations
-Retrospective research cannot demonstrate improved patient outcomes. Missingness and test-ordering may encode local workflow; lab measurement flags can shift across hospitals. Forward-fill never uses the future, but observations can become stale. A validation participates in model selection, so its performance is optimistic. Bootstrap intervals hold the model and operating rule fixed and omit training uncertainty. Binary recorded sex and broad age groups are incomplete fairness audits.
-Onset is inferred, not independently observed. First-hour-positive recordings have left-censored onset and are excluded from onset-based catch/warning denominators, but retained in hourly AUROC/AUPRC and utility. Some inferred onsets fall outside the recording. Alerts count every positive hour with no cooldown; this is an explicit workload proxy, not a validated nursing workflow. False alarms mean alarms outside the evaluable pre-onset window, including left-censored or undefined onset; they are not clinically adjudicated false positives.
-qSOFA-style omits mental status. NEWS2-style uses oxygen-saturation scale 1 and omits consciousness, supplemental oxygen and scale-2 eligibility. Missing components contribute zero, potentially understating severity. These approximations are not validated clinical NEWS2/qSOFA. Official utility is threshold-dependent and distinct from the custom pre-onset catch metric.
-The default replay is a deliberately selected illustrative case. The rest of the demo is randomly sampled. Demo replays are not used to estimate external performance.
+    docker build -t sepsislens .
+    docker run --rm -p 8501:8501 sepsislens
 
-
-## Layout
-src/: loading, features, baselines, training, evaluation and explanations. app/app.py: dashboard. data/: git-ignored. models/: both models, feature lists and patient split manifest. reports/: metrics, plots and screenshots. demo/: replay predictions, features and cached SHAP. vendor/: official scorer.
+Docker status is stated above; configuration is not claimed verified when Docker is absent.
 
 ## Checks
 
     .venv/bin/python -m pytest -q
     .venv/bin/python scripts/smoke_app.py
     .venv/bin/python scripts/verify_bundle.py
+    .venv/bin/python scripts/browser_check.py
 
-Optional visual verification: install Playwright Chromium, launch Streamlit, then run scripts/browser_check.py. Results are saved to reports/verification.json and reports/browser_verification.json.
+Browser checks require Playwright Chromium and a running app. Deployment-isolation checks use scripts/check_deployment.py. Results and screenshots live in reports/.
 
-## Sources and attribution
-Data: Reyna MA et al. Early Prediction of Sepsis From Clinical Data: The PhysioNet/Computing in Cardiology Challenge 2019. Critical Care Medicine. 2020;48(2):210-217. DOI: [10.1097/CCM.0000000000004145](https://doi.org/10.1097/CCM.0000000000004145). [Dataset v1.0.0](https://physionet.org/content/challenge-2019/1.0.0/), CC BY 4.0. Demo patient values and derived recordings retain this attribution/license.
-Official scoring source and BSD license: [physionetchallenges/evaluation-2019](https://github.com/physionetchallenges/evaluation-2019), vendored without changes in vendor/official.py.
-[CDC sepsis burden](https://www.cdc.gov/sepsis/about/), [Wong et al. 2021](https://jamanetwork.com/journals/jamainternalmedicine/fullarticle/2781307), [Adams et al. / TREWS 2022](https://www.nature.com/articles/s41591-022-01894-0).
+## Limitations
+This is retrospective methodological research, not evidence of clinical benefit. **Not for clinical use.** Missingness/test ordering and carried-forward measurements can reflect local workflow. First-hour-positive recordings have left-censored onset: they remain in hourly discrimination/utility but are excluded from onset-based catches and warning-time denominators. Some inferred onsets fall beyond the recording.
+The original B evaluation has already been seen. This refinement is A-only development followed by another external check on the same B cohort, not a new untouched confirmatory study. Do not claim B is a pristine final holdout for future iterations. No B threshold quantiles or B model selection are used in this run.
+A validation is used for development, so its performance is optimistic. Stacker fitting uses a separate patient slice from candidate assessment. Bootstrap intervals freeze the selected model, thresholds and alert sequences; they omit training/selection uncertainty.
+Cooldown lowers repeated burden but also limits maximum attainable alarm rate. A target may be unattainable; B rates can drift in either direction. Read actual B rates beside catches. The official hourly utility penalizes suppressed positive hours and is not an episodic-alert utility. It is reported without changing the reference scoring logic.
+Outside-window alarms are not adjudicated clinical false positives. They include records with undefined/left-censored onset. NEWS2-style omits consciousness, supplemental oxygen and scale-2 eligibility; qSOFA-style omits mental status. Missing components contribute zero. These partial scores are not validated clinical NEWS2/qSOFA.
+Binary recorded sex and age bands are incomplete fairness audits. The default replay is automatically chosen to illustrate an early model alert; it is deliberately selected, not representative performance evidence.
+
+## Data and attribution
+Dataset: Reyna MA et al. Early Prediction of Sepsis From Clinical Data: The PhysioNet/Computing in Cardiology Challenge 2019. Critical Care Medicine. 2020;48(2):210-217. [DOI](https://doi.org/10.1097/CCM.0000000000004145). [PhysioNet v1.0.0](https://physionet.org/content/challenge-2019/1.0.0/), CC BY 4.0. Demo patient values/derived records retain this attribution.
+The unmodified [official PhysioNet 2019 evaluator](https://github.com/physionetchallenges/evaluation-2019) is in vendor/official.py with its BSD license. Project code uses MIT; data licensing remains separate.
 

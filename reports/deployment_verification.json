@@ -1,0 +1,9 @@
+{
+  "python": "3.11.15",
+  "python311_demo_only_passed": true,
+  "isolated_app_health": "ok",
+  "training_data_present": false,
+  "docker_verified": false,
+  "docker_status": "Docker executable unavailable on the Mac",
+  "cloud_published": false
+}

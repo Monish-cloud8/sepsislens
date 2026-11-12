@@ -7,15 +7,14 @@
     "About"
   ],
   "interactions": [
-    "hour slider",
-    "first-alert explanation",
+    "replay limits",
+    "both explanation modes",
     "alternate patient",
-    "alarm budget extremes",
-    "model version"
+    "alarm budgets",
+    "all cooldowns",
+    "all model versions",
+    "all subgroup methods"
   ],
   "exceptions": 0,
-  "protocol_tests_passed": 11,
-  "remote_health_from_windows": "ok",
-  "docker_build_verified": false,
-  "cloud_published": false
+  "seconds": 2.4169888496398926
 }

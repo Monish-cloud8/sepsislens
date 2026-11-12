@@ -6,7 +6,18 @@
     "Trust & Validation",
     "About"
   ],
+  "controls": [
+    "patient picker",
+    "replay limits",
+    "explanation modes",
+    "budget limits",
+    "cooldown options",
+    "model versions",
+    "subgroup methods",
+    "metrics download"
+  ],
   "screenshots": true,
   "mobile_viewport": true,
-  "page_errors": []
+  "page_errors": [],
+  "seconds": 14.245341062545776
 }

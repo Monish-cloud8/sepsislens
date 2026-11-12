@@ -1,0 +1,18 @@
+{
+  "refinement_external_passes": 1,
+  "A_experiment_candidates": 11,
+  "original_features_reused": true,
+  "A_refinement_completed": true,
+  "external_model_and_policy_hash_verified": true,
+  "protocol_tests_passed": 20,
+  "python311_demo_only_passed": true,
+  "cloud_push_performed": false,
+  "evaluation_provenance": {
+    "evaluated_at_utc": "2026-11-12T00:42:10.734838+00:00",
+    "python": "3.12.13",
+    "model_sha256": "9c5cfbe695a2d919aef3695eeab4738e49939cb44f1410d5d20207af65d1e3a2",
+    "policy_lock_sha256": "3bf7545b2c54521d6164f81466dd80d88065425a87497eb7d928dd3fc13623ab",
+    "external_model_selection_permitted": false,
+    "runtime_seconds": 113.33177590370178
+  }
+}
