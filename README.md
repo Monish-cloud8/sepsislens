@@ -11,6 +11,18 @@ app_port: 8501
 
 > **Research prototype, NOT FOR CLINICAL USE.** Retrospective public ICU recordings. No diagnosis, treatment, triage or live patient monitoring.
 
+## Headline (Hospital B, never used for training)
+At a nominal budget of 5 alerts per 100 patient-hours with a 12-hour cooldown, SepsisLens caught **69.0%** of eligible septic patients (634/919) versus **67.0%** for a NEWS2-style score (616/919), with **14.1% fewer outside-window alarms** (27,340 vs 31,841). Median warning: 7 h vs 6 h. Hourly AUROC 0.726 vs 0.643.
+**Honest limits of that claim:**
+- The 5-per-100h figure is the *target* thresholds were fit to on Hospital A. Realized Hospital B rates were 3.67 (model) and 4.26 (NEWS2) alerts per 100 patient-hours, so the model also fired fewer alarms.
+- The catch-rate gap is small: 95% patient-bootstrap intervals overlap (65.9-71.7% vs 63.9-70.0%); a separate paired bootstrap on the saved predictions gave a +2.0 pp difference with a 95% interval of about -1.6 to +5.6 pp, so we do not claim a statistically significant catch gain. The clearer advantage is fewer alarms per catch.
+- **At a 2-per-100h budget NEWS2 catches slightly more** (36.6% vs 34.8%), but its realized rate is about twice as high (1.61 vs 0.82 per 100 h). At 10 per 100 h both methods tie (92.9%).
+- **At equal realized alarm burden the gap is larger** (read from the budget curves by linear interpolation, point estimates without intervals): 71.6% (model) vs 67.0% (NEWS2) at NEWS2's 4.26 alerts per 100 h.
+- Part of the improvement comes from the shared alert cooldown policy, not only the model.
+- The default replay patient was chosen to illustrate an early alert; it is not representative. In the 300-patient replay sample (25 evaluable septic patients) the model alerts in the warning window for 19 and NEWS2-style for 16; where both alert the model is earlier in 5 cases and NEWS2-style in 8. The app lets you open a missed case.
+- Hospital B had been evaluated before this refinement, so it is an external check, not a pristine holdout.
+
+
 ## Key results
 Full Hospital B evaluation: 20,000 patients, 761,995 hours.
 A-only selected candidate: **original**; shared alert cooldown: **12 hours**.
@@ -80,14 +92,14 @@ TREWS provider confirmation within three hours was associated with a 18.7% adjus
 Python 3.11 is verified for deployment; the existing Mac environment also runs Python 3.12.
 The app reads the demo bundle and metrics only. It never retrains or reads data/raw at startup.
 
-    cd "/Users/monishannabheemoju/Desktop/Hackathons/DSH Hacks V2/sepsislens"
+    cd sepsislens
     .venv/bin/streamlit run app/app.py --server.address=0.0.0.0
 
 Clean setup:
 
     python3.11 -m venv .venv
     source .venv/bin/activate
-    python -m pip install -r requirements.txt
+    python -m pip install -r requirements.txt   # app only; use requirements-dev.txt for tests/pipeline
     streamlit run app/app.py
 
 macOS requires OpenMP: brew install libomp. Linux packages.txt installs libgomp1.
@@ -131,7 +143,7 @@ Patient Replay has causal vitals/model/NEWS2 plots, emitted-alert markers, infer
 ## Deploy to Streamlit Community Cloud
 Clean Python 3.11 and demo-only execution: passed. Docker build/run: untested; Docker unavailable on the Mac. No account creation or remote push.
 
-1. Use this sepsislens directory as the repository root. Include app/, src/, demo/, models/, reports/, vendor/, requirements.txt, packages.txt and .streamlit/. Exclude data/, environments and logs.
+1. Use this sepsislens directory as the repository root. Include app/, src/, demo/, models/, reports/, vendor/, requirements.txt, packages.txt and .streamlit/. Exclude data/, environments and logs. requirements.txt holds only the runtime packages the app imports (training and test tools are in requirements-dev.txt).
 2. In your own GitHub account, create/select a repository and push the prepared project yourself. No push or account creation is performed by this task.
 3. Open Streamlit Community Cloud, choose Create app, select that repository and branch, and set the main file path to app/app.py.
 4. Under Advanced settings, select Python 3.11. No secrets or dataset download are required.

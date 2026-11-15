@@ -1,5 +1,6 @@
 """Generate documentation from the evaluated report; no performance constants."""
 import json
+import numpy as np
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def f(value,d=3):
@@ -48,6 +49,20 @@ Binary recorded sex and age bands are incomplete fairness audits. The default re
  citations="""Dataset: Reyna MA et al. Early Prediction of Sepsis From Clinical Data: The PhysioNet/Computing in Cardiology Challenge 2019. Critical Care Medicine. 2020;48(2):210-217. [DOI](https://doi.org/10.1097/CCM.0000000000004145). [PhysioNet v1.0.0](https://physionet.org/content/challenge-2019/1.0.0/), CC BY 4.0. Demo patient values/derived records retain this attribution.
 The unmodified [official PhysioNet 2019 evaluator](https://github.com/physionetchallenges/evaluation-2019) is in vendor/official.py with its BSD license. Project code uses MIT; data licensing remains separate.
 """
+ r5,n5,r2,n2=[m["B"]["methods"][a]["budgets"][b] for a,b in [("refined","5.0"),("NEWS2","5.0"),("refined","2.0"),("NEWS2","2.0")]]
+ fa_cut=100*(1-r5["false_alarms"]/n5["false_alarms"])
+ headline=f"""## Headline (Hospital B, never used for training)
+At a nominal budget of 5 alerts per 100 patient-hours with a {sel["selected_cooldown"]}-hour cooldown, SepsisLens caught **{r5["caught_pct"]:.1f}%** of eligible septic patients ({r5["caught"]}/{r5["eligible_septic"]}) versus **{n5["caught_pct"]:.1f}%** for a NEWS2-style score ({n5["caught"]}/{n5["eligible_septic"]}), with **{fa_cut:.1f}% fewer outside-window alarms** ({r5["false_alarms"]:,} vs {n5["false_alarms"]:,}). Median warning: {r5["median_warning"]:.0f} h vs {n5["median_warning"]:.0f} h. Hourly AUROC {model["auroc"]:.3f} vs {m["B"]["methods"]["NEWS2"]["auroc"]:.3f}.
+**Honest limits of that claim:**
+- The 5-per-100h figure is the *target* thresholds were fit to on Hospital A. Realized Hospital B rates were {r5["alert_rate"]:.2f} (model) and {n5["alert_rate"]:.2f} (NEWS2) alerts per 100 patient-hours, so the model also fired fewer alarms.
+- The catch-rate gap is small: 95% patient-bootstrap intervals overlap ({r5["ci"]["caught_pct"][0]:.1f}-{r5["ci"]["caught_pct"][1]:.1f}% vs {n5["ci"]["caught_pct"][0]:.1f}-{n5["ci"]["caught_pct"][1]:.1f}%); a separate paired bootstrap on the saved predictions gave a +2.0 pp difference with a 95% interval of about -1.6 to +5.6 pp, so we do not claim a statistically significant catch gain. The clearer advantage is fewer alarms per catch.
+- **At a 2-per-100h budget NEWS2 catches slightly more** ({n2["caught_pct"]:.1f}% vs {r2["caught_pct"]:.1f}%), but its realized rate is about twice as high ({n2["alert_rate"]:.2f} vs {r2["alert_rate"]:.2f} per 100 h). At 10 per 100 h both methods tie ({r5 and m["B"]["methods"]["refined"]["budgets"]["10.0"]["caught_pct"]:.1f}%).
+- **At equal realized alarm burden the gap is larger** (read from the budget curves by linear interpolation, point estimates without intervals): {np.interp(n5["alert_rate"],[v["alert_rate"] for v in m["B"]["methods"]["refined"]["cooldowns"][str(sel["selected_cooldown"])].values()],[v["caught_pct"] for v in m["B"]["methods"]["refined"]["cooldowns"][str(sel["selected_cooldown"])].values()]):.1f}% (model) vs {n5["caught_pct"]:.1f}% (NEWS2) at NEWS2's {n5["alert_rate"]:.2f} alerts per 100 h.
+- Part of the improvement comes from the shared alert cooldown policy, not only the model.
+- The default replay patient was chosen to illustrate an early alert; it is not representative. In the 300-patient replay sample (25 evaluable septic patients) the model alerts in the warning window for 19 and NEWS2-style for 16; where both alert the model is earlier in 5 cases and NEWS2-style in 8. The app lets you open a missed case.
+- Hospital B had been evaluated before this refinement, so it is an external check, not a pristine holdout.
+
+"""
  deploy=m.get("deployment",{})
  status="Clean Python 3.11 and demo-only execution: "+("passed" if deploy.get("python311_demo_only_passed") else "verification pending")+". Docker build/run: "+("passed" if deploy.get("docker_verified") else "untested; Docker unavailable on the Mac")+". No account creation or remote push."
  readme=f"""---
@@ -63,6 +78,7 @@ app_port: 8501
 
 > **Research prototype, NOT FOR CLINICAL USE.** Retrospective public ICU recordings. No diagnosis, treatment, triage or live patient monitoring.
 
+{headline}
 ## Key results
 Full Hospital B evaluation: {m["B"]["cohort"]["patients"]:,} patients, {m["B"]["cohort"]["hours"]:,} hours.
 A-only selected candidate: **{sel["selected_candidate"]}**; shared alert cooldown: **{sel["selected_cooldown"]} hours**.
@@ -92,14 +108,14 @@ TREWS provider confirmation within three hours was associated with a {m["citatio
 Python 3.11 is verified for deployment; the existing Mac environment also runs Python 3.12.
 The app reads the demo bundle and metrics only. It never retrains or reads data/raw at startup.
 
-    cd "/Users/monishannabheemoju/Desktop/Hackathons/DSH Hacks V2/sepsislens"
+    cd sepsislens
     .venv/bin/streamlit run app/app.py --server.address=0.0.0.0
 
 Clean setup:
 
     python3.11 -m venv .venv
     source .venv/bin/activate
-    python -m pip install -r requirements.txt
+    python -m pip install -r requirements.txt   # app only; use requirements-dev.txt for tests/pipeline
     streamlit run app/app.py
 
 macOS requires OpenMP: brew install libomp. Linux packages.txt installs libgomp1.
@@ -132,7 +148,7 @@ Patient Replay has causal vitals/model/NEWS2 plots, emitted-alert markers, infer
 ## Deploy to Streamlit Community Cloud
 {status}
 
-1. Use this sepsislens directory as the repository root. Include app/, src/, demo/, models/, reports/, vendor/, requirements.txt, packages.txt and .streamlit/. Exclude data/, environments and logs.
+1. Use this sepsislens directory as the repository root. Include app/, src/, demo/, models/, reports/, vendor/, requirements.txt, packages.txt and .streamlit/. Exclude data/, environments and logs. requirements.txt holds only the runtime packages the app imports (training and test tools are in requirements-dev.txt).
 2. In your own GitHub account, create/select a repository and push the prepared project yourself. No push or account creation is performed by this task.
 3. Open Streamlit Community Cloud, choose Create app, select that repository and branch, and set the main file path to app/app.py.
 4. Under Advanced settings, select Python 3.11. No secrets or dataset download are required.

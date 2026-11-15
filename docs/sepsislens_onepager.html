@@ -1,0 +1,66 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>SepsisLens one-pager</title>
+<style>
+@page{size:Letter;margin:0}
+*{box-sizing:border-box}
+body{margin:0;font:10pt/1.32 -apple-system,"Helvetica Neue",Arial,sans-serif;color:#122b45;width:8.5in;height:11in;padding:.4in .5in;overflow:hidden}
+h1{font-size:22pt;margin:0;color:#0d9488;letter-spacing:-.3px}
+.sub{font-size:10pt;color:#4a6277;margin:1px 0 6px}
+.warn{background:#fdf6d8;border-left:3px solid #c9a400;padding:3px 8px;font-size:8.3pt;margin-bottom:7px}
+h2{font-size:10.5pt;margin:7px 0 2px;color:#122b45;border-bottom:1px solid #cfe3e1;padding-bottom:1px}
+p,ul{margin:2px 0}ul{padding-left:15px}li{margin:1px 0}
+.cols{display:flex;gap:16px}.cols>div{flex:1}
+table{border-collapse:collapse;width:100%;font-size:9pt;margin-top:3px}
+th,td{border:1px solid #cfe3e1;padding:2px 5px;text-align:right}th:first-child,td:first-child{text-align:left}
+th{background:#edf4f7}tr.m td{font-weight:600;background:#e9f7f5}
+img{width:100%;display:block;margin-top:2px}
+.cap{font-size:7.6pt;color:#4a6277}
+.links{margin-top:7px;font-size:9pt;border-top:1px solid #cfe3e1;padding-top:4px}
+.foot{font-size:7.4pt;color:#4a6277;margin-top:4px}
+</style></head><body>
+<h1>SepsisLens</h1>
+<div class="sub">Explainable sepsis early warning, tested on a hospital it never trained on &middot; DSH Hacks V2 &middot; AI x Healthcare</div>
+<div class="warn"><b>Research prototype. Not a medical device. Not for clinical use.</b> Retrospective, de-identified public ICU data; no diagnosis, triage or live monitoring.</div>
+
+<h2>Problem</h2>
+<p>Sepsis kills fast, and earlier treatment helps, but bedside early-warning scores either miss cases or fire so often that staff tune them out. A useful tool must warn earlier <i>at a realistic alarm burden</i> and show <i>why</i> it alerted.</p>
+
+<h2>Approach</h2>
+<ul>
+<li><b>Data:</b> PhysioNet/CinC Challenge 2019 (CC BY 4.0). Train, calibrate and fix alarm thresholds on Hospital A only; test on Hospital B (20,000 patients, 761,995 patient-hours, 919 septic patients eligible for onset-based scoring).</li>
+<li><b>Model:</b> LightGBM on causal hourly features (current and past data only), with SHAP explanations.</li>
+<li><b>Alarm policy:</b> a threshold per alarm budget plus a 12-hour cooldown (an alert silences repeats). Baselines get the same policy: NEWS2-style and qSOFA-style scores (partial approximations).</li>
+<li><b>Catch</b> = at least one alert in the 12 hours before inferred onset. Onset = first SepsisLabel=1 hour + 6 (inferred).</li>
+</ul>
+
+<div class="cols"><div>
+<h2>Results on Hospital B (budget 5 alerts/100 h, 12 h cooldown)</h2>
+<table>
+<tr><th></th><th>SepsisLens</th><th>NEWS2-style</th></tr>
+<tr class="m"><td>Septic patients caught</td><td>69.0% (634/919)</td><td>67.0% (616/919)</td></tr>
+<tr><td>95% interval</td><td>65.9&ndash;71.7%</td><td>63.9&ndash;70.0%</td></tr>
+<tr><td>Outside-window alarms</td><td>27,340</td><td>31,841</td></tr>
+<tr><td>Realized alerts / 100 h</td><td>3.67</td><td>4.26</td></tr>
+<tr><td>Median warning</td><td>7 h</td><td>6 h</td></tr>
+<tr><td>Hourly AUROC</td><td>0.726</td><td>0.643</td></tr>
+<tr><td>Caught at 2 alerts/100 h</td><td>34.8%</td><td><b>36.6%</b></td></tr>
+</table>
+<p class="cap">About 14% fewer outside-window alarms. The 5/100 h figure is the target fit on Hospital A; realized Hospital B rates are shown. Source: reports/metrics.json.</p>
+</div><div>
+<img src="../reports/figures/alarm_budget.png" alt="Catch rate versus realized alert rate">
+<p class="cap">Catch rate vs realized Hospital B alerts per 100 patient-hours (A-locked thresholds, shared cooldown). Source: reports/figures/alarm_budget.png.</p>
+</div></div>
+
+<h2>Explainability</h2>
+<p>Every alert has a per-feature SHAP breakdown of the tree's log-odds, plus an hour-by-hour patient replay showing only what was known at that hour. In the demo case the model alerts at hour 169, 12 h before inferred onset and 10 h before the NEWS2-style alert at hour 179; the top drivers are oxygen support (FiO2), a rising respiratory rate and BUN. SHAP shows model contributions, not causes.</p>
+
+<h2>Honest limits</h2>
+<ul>
+<li><b>Small, uncertain gain:</b> the catch gap (+2.0 pp) is within noise (paired bootstrap 95% interval about &minus;1.6 to +5.6 pp). The clearer benefit is fewer alarms per catch.</li>
+<li><b>At 2 alerts/100 h NEWS2 catches slightly more</b> (36.6% vs 34.8%), but fires about twice as many alarms (1.61 vs 0.82 per 100 h).</li>
+<li>Part of the gain comes from the cooldown policy; the featured patient is a best case (in the 25-patient replay sample the model is earlier than NEWS2-style in 5 of 13 shared catches). Unlike the 2019 challenge we compare alarm burden against NEWS2 across hospitals; we make no claim to beat challenge entries.</li>
+<li>Retrospective data; Hospital B had been evaluated before this refinement, so it is an external check, not a pristine holdout. &ldquo;False alarm&rdquo; = alert outside the useful window, not an adjudicated clinical error. NEWS2/qSOFA are partial approximations. <b>Not a medical device.</b></li>
+</ul>
+
+<div class="links"><b>Live demo:</b> [DEMO_URL &mdash; add after deploying] &nbsp;&middot;&nbsp; <b>Code:</b> [REPO_URL &mdash; add after pushing to GitHub]</div>
+<div class="foot">Data: Reyna et al., Crit Care Med 2020;48(2):210-217; PhysioNet Challenge 2019 v1.0.0, CC BY 4.0. Code: MIT.</div>
+</body></html>

@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 if [ ! -x .venv/bin/python ]; then
  if command -v uv >/dev/null; then uv venv --python 3.11 .venv; else python3.11 -m venv .venv; fi
 fi
-if command -v uv >/dev/null; then uv pip install --python .venv/bin/python -r requirements.txt; else .venv/bin/python -m pip install -r requirements.txt; fi
+if command -v uv >/dev/null; then uv pip install --python .venv/bin/python -r requirements-dev.txt; else .venv/bin/python -m pip install -r requirements-dev.txt; fi
 if [ "${1:-}" != "--resume" ]; then
  .venv/bin/python -u scripts/download.py
  .venv/bin/python -u -m src.load

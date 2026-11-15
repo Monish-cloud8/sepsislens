@@ -9,3 +9,10 @@ scripts/pipeline.sh
 .venv311/
 .demo-check/
 .demo-check*/
+.env
+.env.*
+secrets.toml
+.streamlit/secrets.toml
+reports/server.json
+*.pyc
+.ipynb_checkpoints/
